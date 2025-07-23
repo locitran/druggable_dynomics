@@ -1,0 +1,8 @@
+-ddg:mut_file list.txt # same syntax with what being used in ddg-monomer application.
+-ddg:iterations 3 # can be flexible; 3 is fast and reasonable
+-ddg::cartesian
+#-ddg::dump_pdbs false # you can save mutants pdb if you want
+-ddg:bbnbrs 1 # bb dof, suggestion: i-1, i, i+1
+-ddg::legacy false #Default: true. Call the legacy version of the cartesian_ddg app.
+-fa_max_dis 9.0 # modify fa_atr and fa_sol behavior, really important for protein stability (default: 6)  
+-score:weights ref2015_cart # [scorefunction option]: any other options for score function containing cart_bonded term, for example, -beta_cart or -score:weights talaris2014_cart]
