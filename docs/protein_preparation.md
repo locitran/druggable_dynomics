@@ -17,6 +17,26 @@ This script automates the preparation of protein structures for Molecular Dynami
   - Add hydrogen atoms.
   - Determine protonation states of **Histidine (HIS)** residues.
     - Assigns `HIP`, `HID`, or `HIE` based on presence of `HD1` and/or `HE2` hydrogens.
+Ex: 
+```bash
+reduce_modifications = pytraj_detect_Reduce_HIX(traj_reduce.top)
+reduce_modifications
+[('HIS', '38', 'HIE'),
+('HIS', '117', 'HIE'),
+('HIS', '149', 'HIE'),
+('HIS', '155', 'HIE'),
+('HIS', '235', 'HIE'),
+('HIS', '300', 'HIE'),
+('HIS', '408', 'HIE')]
+```
+
+![Hydrogen Addition](./images/add_hydrogen.png)
+
+**Why do we protonate the amine group (-NH2) in the N-terminus?**
+
+![Histidine protonate states](./images/HIS_protonate_states.png)
+
+**Why is Histidine protonated on the epsilon nitrogen(HE2) to be HIE state?**
 
 ---
 

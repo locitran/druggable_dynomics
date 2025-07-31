@@ -1,0 +1,27 @@
+Singularity> /usr/local/amber20/bin/ambpdb -h
+
+Usage: /usr/local/amber20/bin/ambpdb -p 'Top' -c 'Coords' [Additional Options]
+       /usr/local/amber20/bin/ambpdb -p 'Top' < 'AmberRestart' [Additional Options]
+    -p 'Top'       Topology file (default: prmtop).
+    -c 'Coords'    Coordinate file.
+    'AmberRestart' Amber restart file from STDIN.
+  PDB is written to STDOUT.
+  Options for alternate output format (give only one of these):
+    -pqr          PQR (MEAD) format with charges and radii.
+    -mol2         TRIPOS MOL2 format.
+  Additional Options:
+    -v            Print version information.
+    -tit <TITLE>  Write a REMARK record containing TITLE.
+                      (default: use prmtop title)
+    -aatm         Left-justified Amber atom names.
+    -sybyl        (MOL2 format only) Convert Amber atom types to SYBYL.
+    -ac <file>    (Implies '-sybyl') Atom type corresponding file (optional).
+    -bc <file>    (Implies '-sybyl') Bond type corresponding file (optional).
+    -conect       Write CONECT records for all bonds.
+    -ep           Include extra points if present.
+    -bres         Brookhaven Residue names (HIE->HIS, etc.).
+    -ctr          Center molecule on (0,0,0).
+    -noter        Do not write TER records.
+    -ext          Use PRMTOP extended PDB info, if present.
+    -nobox        Do not write CRYST1 record if box coordinates present.
+    -offset <INT> Add offset to residue numbers.

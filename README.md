@@ -67,3 +67,12 @@ notebook_link -i notebook.log
 # To access the notebook,  copy and paste one of these URLs in a browser:
 #          http://140.114.97.192:19419/?token=1a9022e70f8807b21dfa9dec88280f44ca06a43e88108730
 ```
+
+
+# Useful `Git` command
+
+```bash
+git add .
+git commit -m "msg"
+git push origin main
+```

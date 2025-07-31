@@ -1,7 +1,0 @@
-set default PBradii mbondi2
-source leaprc.protein.ff14SB
-source leaprc.water.tip3p
-protein = loadpdb /md/tmp/tleap.pdb
-saveamberparm protein /md/tmp/protein.parm7 /md/tmp/protein.crd
-saveOff protein /md/tmp/protein.lib
-quit

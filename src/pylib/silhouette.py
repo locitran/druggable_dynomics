@@ -32,9 +32,10 @@ def try_n_clusters(data, minclust, maxclust):
         
     maxclust += 1
     ### check min/ max cluster to make sure 2 <= no. of clusters <= n_sample-1
-    assert (maxclust <= data.shape[0] and minclust >= 2), \
-        "maxclust needs to be smaller then (n_samples-1) and minclust needs to be bigger then 1"
+    # assert (maxclust <= data.shape[0] and minclust >= 2), \
+    #     "maxclust needs to be smaller then (n_samples-1) and minclust needs to be bigger then 1"
         
+    maxclust=5
     ### store the coresponding cluster ids for each number of clusters in m  
     m = []
     cid_arr = []
