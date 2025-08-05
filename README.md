@@ -1,3 +1,7 @@
+This repository contains the source code for the Druggable DynOmics project.
+
+Github repository: https://github.com/locitran/druggable_dynomics.git
+
 # 1. Run image/container interactive mode
 
 ```bash
@@ -24,6 +28,7 @@ singularity exec \
 
 Get out of the sandbox to run as interactive mode:
 ```bash
+basedir=/mnt/nas_1/YangLab/loci/druggable_dynomics/
 singularity exec \
     --home /tmp \
     --bind /raid \
