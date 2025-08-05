@@ -2,22 +2,12 @@
 """This module defines a class and relative functions for mapping Uniprot
 sequences to PDB and Pfam databases."""
 
-import os
 import re
-import dill as pickle
-import datetime
 import time
-import numpy as np
-import urllib.parse
-import requests 
 import re
-import traceback
 
-import prody
-from prody import parsePDB, Atomic, queryUniprot
+from prody import queryUniprot
 from prody.utilities import openURL
-from Bio.pairwise2 import align as bioalign
-from Bio.pairwise2 import format_alignment
 from rcsbapi.data import DataQuery
 
 from .utils.logger import LOGGER

@@ -1,1 +1,10 @@
 rcsb-api==1.3.0
+ProDy==2.4.1
+scipy==1.13.0
+biopython==1.79
+requests==2.32.4
+pandas==2.2.3
+numpy==1.23.5
+matplotlib==3.10.0
+scikit-learn==1.6.1
+seaborn==0.13.2
