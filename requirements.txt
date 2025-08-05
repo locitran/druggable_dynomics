@@ -8,3 +8,4 @@ numpy==1.23.5
 matplotlib==3.10.0
 scikit-learn==1.6.1
 seaborn==0.13.2
+notebook==7.3.2
