@@ -49,19 +49,83 @@ class UniprotRecord(object):
         return self.getEntry('name', index)
 
     def getProtein(self, index=0):
-        """protein tag"""
+        """protein tag
+        <protein>
+            <recommendedName>
+                <fullName>Gap junction beta-2 protein</fullName>
+            </recommendedName>
+            <alternativeName>
+                <fullName evidence="57 58">Connexin-26</fullName>
+                <shortName evidence="58">Cx26</shortName>
+            </alternativeName>
+        </protein>
+        """
         protein = self.getEntry('protein', index)
-        protein = protein.find('up:recommendedName/up:fullName', ns)
-        if protein is not None:
-            return protein.text
-
+        
+        recommend_elem = protein.find('up:recommendedName', ns)
+        alternative_elem = protein.find('up:recommendedName', ns)
+        
+        recommend_name = recommend_elem.find('up:fullName', ns)
+        alter_fullname = alternative_elem.find('up:fullName', ns)
+        alter_shortname = alternative_elem.find('up:shortName', ns)
+        
+        recommend_name = recommend_name.text if recommend_name is not None else None
+        alter_fullname = alter_fullname.text if alter_fullname is not None else None
+        alter_shortname = alter_shortname.text if alter_shortname is not None else None
+        
+        return {
+            'recommend_name': recommend_name,
+            'alter_fullname': alter_fullname,
+            'alter_shortname': alter_shortname            
+        }
+        
     def getGene(self, index=0):
-        """gene tag"""
-        pass
+        """gene tag
+        <gene>
+            <name type="primary">GJB2</name>
+        </gene>
+        """
+        gene = self.getEntry('gene', index)
+        name_elem = gene.find('up:name[@type="primary"]', ns)
+        return name_elem.text if name_elem is not None else None
 
     def getOrganism(self, index=0):
-        """organism tag"""
-        pass
+        """organism tag
+        <organism>
+            <name type="scientific">Homo sapiens</name>
+            <name type="common">Human</name>
+            <dbReference type="NCBI Taxonomy" id="9606"/>
+            <lineage>
+                <taxon>Eukaryota</taxon>
+                <taxon>Metazoa</taxon>
+                <taxon>Chordata</taxon>
+                <taxon>Craniata</taxon>
+                <taxon>Vertebrata</taxon>
+                <taxon>Euteleostomi</taxon>
+                <taxon>Mammalia</taxon>
+                <taxon>Eutheria</taxon>
+                <taxon>Euarchontoglires</taxon>
+                <taxon>Primates</taxon>
+                <taxon>Haplorrhini</taxon>
+                <taxon>Catarrhini</taxon>
+                <taxon>Hominidae</taxon>
+                <taxon>Homo</taxon>
+            </lineage>
+        </organism>
+        """
+        organism = self.getEntry('organism', index)
+
+        sci_name = organism.find('up:name[@type="scientific"]', ns)
+        com_name = organism.find('up:name[@type="common"]', ns)
+        db_ref = organism.find('up:dbReference[@type="NCBI Taxonomy"]', ns)
+        lineage_tags = organism.findall('up:lineage/up:taxon', ns)
+
+        return {
+            'scientific_name': sci_name.text.strip() if sci_name is not None else None,
+            'common_name': com_name.text.strip() if com_name is not None else None,
+            'taxonomy_id': db_ref.attrib['id'] if db_ref is not None else None,
+            'lineage': [taxon.text.strip() for taxon in lineage_tags if taxon.text]
+        }
 
     def getReference(self, index=0):
         """reference tag"""
@@ -276,11 +340,13 @@ class UniprotRecord(object):
         # https://data.rcsb.org/data-attributes.html 
         """
         
-        query = DataQuery(
+        query = Query(
             input_type="entries",
             input_ids=pdblist,
             return_data_list=[
                 "nonpolymer_entities.pdbx_entity_nonpoly.comp_id",
+                "nonpolymer_entities.pdbx_entity_nonpoly.name",
+                "nonpolymer_entities.rcsb_nonpolymer_entity.pdbx_description",
             ]
         )
         r = query.exec()
@@ -293,12 +359,16 @@ class UniprotRecord(object):
             if ligand_list is None:
                 ligands[pdbid] = None
                 continue
-
-            ligand = [
-                entity['pdbx_entity_nonpoly']['comp_id'] \
-                for entity in ligand_list
-            ]
-            ligands[pdbid] = ligand
+            
+            ligands[pdbid] = []
+            for entity in ligand_list:
+                _dict = {
+                    'comp_id': entity['pdbx_entity_nonpoly']['comp_id'],
+                    'name': entity['pdbx_entity_nonpoly']['name'],
+                    'pdbx_description': entity['rcsb_nonpolymer_entity']['pdbx_description']
+                }
+                ligands[pdbid].append(_dict)
+        self._ligands = ligands
         return ligands
     
     def _parse(self):
