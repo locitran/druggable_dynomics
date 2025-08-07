@@ -16,7 +16,7 @@ LOGGER.start(logfile)
 ####### Import Uniprot 
 uniprotid = os.path.join(ROOT_DIR, 'data/uniprotid.csv')
 df = pd.read_csv(uniprotid)
-id_list = df.id.to_list()[:10]
+id_list = df.id.to_list()[:20]
 #######
 
 ####### Parsing
@@ -53,7 +53,7 @@ LOGGER.close(logfile)
 
 json_string = json.dumps(data)
 filename = 'parseUniprot.json'
-filepath = os.path.join(data, filename)
+filepath = os.path.join(ROOT_DIR, 'data', filename)
 with open(filepath, 'w') as f:
     json.dump(data, f)
     
