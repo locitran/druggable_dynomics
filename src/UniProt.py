@@ -8,12 +8,11 @@ import re
 
 from prody import queryUniprot
 from prody.utilities import openURL
-from rcsbapi.data import DataQuery
+from rcsbapi.data import DataQuery as Query
 
 from .utils.logger import LOGGER
 
 comma_splitter = re.compile(r'\s*,\s*').split
-
 ns = {'up': 'http://uniprot.org/uniprot'}
     
 class UniprotRecord(object):
@@ -62,16 +61,23 @@ class UniprotRecord(object):
         """
         protein = self.getEntry('protein', index)
         
-        recommend_elem = protein.find('up:recommendedName', ns)
-        alternative_elem = protein.find('up:recommendedName', ns)
-        
-        recommend_name = recommend_elem.find('up:fullName', ns)
-        alter_fullname = alternative_elem.find('up:fullName', ns)
-        alter_shortname = alternative_elem.find('up:shortName', ns)
-        
-        recommend_name = recommend_name.text if recommend_name is not None else None
-        alter_fullname = alter_fullname.text if alter_fullname is not None else None
-        alter_shortname = alter_shortname.text if alter_shortname is not None else None
+        try:
+            recommend_elem = protein.find('up:recommendedName', ns)
+            alternative_elem = protein.find('up:recommendedName', ns)
+            
+            recommend_name = recommend_elem.find('up:fullName', ns)
+            alter_fullname = alternative_elem.find('up:fullName', ns)
+            alter_shortname = alternative_elem.find('up:shortName', ns)
+            
+            recommend_name = recommend_name.text if recommend_name is not None else None
+            alter_fullname = alter_fullname.text if alter_fullname is not None else None
+            alter_shortname = alter_shortname.text if alter_shortname is not None else None
+        except:
+            submitted_name = protein.find('up:submittedName', ns)
+            submitted_name = submitted_name.text if submitted_name is not None else None
+            recommend_name = submitted_name
+            alter_fullname = None
+            alter_shortname = None
         
         return {
             'recommend_name': recommend_name,
@@ -126,7 +132,10 @@ class UniprotRecord(object):
             'taxonomy_id': db_ref.attrib['id'] if db_ref is not None else None,
             'lineage': [taxon.text.strip() for taxon in lineage_tags if taxon.text]
         }
-
+        
+    def getCellLocation(self):
+        return self._cell_location
+        
     def getReference(self, index=0):
         """reference tag"""
         pass
@@ -169,6 +178,25 @@ class UniprotRecord(object):
     
     def getBindingSite(self):
         return self._binding_site
+    
+    def getSite(self):
+        return self._site
+    
+    def getAlphaFold(self):
+        """<dbReference type="AlphaFoldDB" id="Q9UDY8"/>"""
+        AlphaFoldDB = None
+        for key, value in self._rawdata.items():
+            if not key.startswith('dbReference'):
+                continue
+
+            if type(value) != list or len(value) != 2:
+                continue
+            
+            # [('type', 'AlphaFoldDB'), ('id', 'Q13509')]
+            if value[0][1] == 'AlphaFoldDB':
+                AlphaFoldDB = value[1][1]
+                break
+        return AlphaFoldDB
     
     def getCofactor(self):
         return self._cofactors
@@ -302,6 +330,36 @@ class UniprotRecord(object):
             })
         self._binding_site = binding_site
     
+    def _parseSite(self):
+        data = self._rawdata
+        site = []
+        for key, value in data.items():
+            if not key.startswith('feature'):
+                continue
+            
+            if value.get('type') != "site":
+                continue
+            
+            """
+            <feature type="site" description="Breakpoint for translocation to form BIRC2-MALT1">
+                <location>
+                    <begin position="323"/>
+                    <end position="324"/>
+                </location>
+            </feature>
+            """
+            descp = value.get('description')
+            begin_elem = value.find('up:location/up:begin', ns)
+            end_elem = value.find('up:location/up:end', ns)
+            begin = begin_elem.attrib.get('position') if begin_elem is not None else None
+            end = end_elem.attrib.get('position') if end_elem is not None else None
+            site.append({
+                'description': descp, 
+                'begin': begin, 
+                'end': end
+            })
+        self._site = site
+    
     def _parseCofactor(self):
         data = self._rawdata
         cofactors = []
@@ -331,15 +389,102 @@ class UniprotRecord(object):
             })
         self._cofactors = cofactors
     
-    def _parseLigand(self, pdblist):
+    def _parseCellLocation(self):
+        data = self._rawdata
+        cell_location = []
+        for key, value in data.items():
+            if not key.startswith('feature'):
+                continue
+            
+            type_list = ['topological domain', 'transmembrane region', 'intramembrane region']
+            loc_type  = value.get('type')
+            if loc_type not in type_list:
+                continue
+            """
+            <feature type="intramembrane region" evidence="45">
+                <location>
+                <begin position="2"/>
+                <end position="13"/>
+                </location>
+            </feature>
+            """
+            descp = value.get('description')
+            begin_elem = value.find('up:location/up:begin', ns)
+            end_elem = value.find('up:location/up:end', ns)
+            begin = begin_elem.attrib.get('position') if begin_elem is not None else None
+            end = end_elem.attrib.get('position') if end_elem is not None else None
+            cell_location.append({
+                'type': loc_type,
+                'description': descp, 
+                'begin': begin, 
+                'end': end
+            })
+        self._cell_location = cell_location
+
+    def _parseSeqAnnotfromPDB(self, pdb_instances):
+        """pdb_instances ['1AID.A', '1AID.B']
         """
-        Fetch data from RCSB graphQL using Data API
-        https://rcsbapi.readthedocs.io/en/latest/data_api/quickstart.html
-        
-        # Available return_data_list fields: 
-        # https://data.rcsb.org/data-attributes.html 
-        """
-        
+        query = Query(
+            input_type="polymer_entity_instances",
+            input_ids=pdb_instances,
+            return_data_list=[
+                "polymer_entity_instances.rcsb_id",
+                "rcsb_polymer_instance_feature.type",
+                "rcsb_polymer_instance_feature.feature_positions.beg_seq_id",
+                "rcsb_polymer_instance_feature.feature_positions.end_seq_id",
+                
+                'rcsb_polymer_instance_info.modeled_residue_count',
+                'rcsb_polymer_instance_feature_summary.coverage',
+                'rcsb_polymer_instance_feature_summary.type',
+                'polymer_entity.rcsb_polymer_entity.pdbx_mutation',
+                'polymer_entity.entity_poly.rcsb_mutation_count',
+            ]
+        )
+        r = query.exec()
+
+        out = {}
+        for entry in r['data']['polymer_entity_instances']:
+            instance = entry['rcsb_id']
+            instance_feature = entry.get('rcsb_polymer_instance_feature', None)
+                
+            unobs_res = [ele['feature_positions'] for ele in instance_feature if ele['type'] == 'UNOBSERVED_RESIDUE_XYZ']
+            unobs_atom= [ele['feature_positions'] for ele in instance_feature if ele['type'] == 'UNOBSERVED_ATOM_XYZ']
+            
+            # Turn into a list of residues / atoms
+            unobs_res = [
+                i for block in unobs_res for r in block
+                for i in range(r['beg_seq_id'], r['end_seq_id'] + 1)
+            ]
+            unobs_atom = [
+                i for block in unobs_atom for r in block
+                for i in range(r['beg_seq_id'], r['end_seq_id'] + 1)
+            ]
+            
+            # Extract specific types
+            coverage_field = entry['rcsb_polymer_instance_feature_summary']    
+            unobs_res_cov = next((d['coverage'] for d in coverage_field if d['type'] == 'UNOBSERVED_RESIDUE_XYZ'), 0)
+            unobs_atom_cov = next((d['coverage'] for d in coverage_field if d['type'] == 'UNOBSERVED_ATOM_XYZ'), 0)
+
+            coverage = {
+                "unobs_res": unobs_res_cov,
+                "unobs_atom": unobs_atom_cov
+            }
+            
+            modeled_residue_count = entry['rcsb_polymer_instance_info']['modeled_residue_count']
+            pdbx_mutation = entry['polymer_entity']['rcsb_polymer_entity']['pdbx_mutation']
+            rcsb_mutation_count = entry['polymer_entity']['entity_poly']['rcsb_mutation_count']
+            
+            out[instance] = {
+                'unobs_res': unobs_res,
+                'unobs_atom': unobs_atom,
+                'coverage': coverage,
+                'modeled_residue_count': modeled_residue_count,
+                'pdbx_mutation': pdbx_mutation,
+                'rcsb_mutation_count': rcsb_mutation_count,
+            }
+        return out
+
+    def _parseLigandsfromPDB(self, pdblist):
         query = Query(
             input_type="entries",
             input_ids=pdblist,
@@ -351,27 +496,69 @@ class UniprotRecord(object):
         )
         r = query.exec()
         
-        ligands = {}
+        out = {}
         for entry in r['data']['entries']:
             pdbid = entry['rcsb_id']
             ligand_list = entry.get('nonpolymer_entities', None)
             # Return None if no ligand
             if ligand_list is None:
-                ligands[pdbid] = None
+                out[pdbid] = None
                 continue
             
-            ligands[pdbid] = []
+            out[pdbid] = []
             for entity in ligand_list:
                 _dict = {
                     'comp_id': entity['pdbx_entity_nonpoly']['comp_id'],
                     'name': entity['pdbx_entity_nonpoly']['name'],
                     'pdbx_description': entity['rcsb_nonpolymer_entity']['pdbx_description']
                 }
-                ligands[pdbid].append(_dict)
-        self._ligands = ligands
-        return ligands
+                out[pdbid].append(_dict)
+        return out
+
+    def _parseRvaluefromPDB(self, pdblist):
+        query = Query(
+            input_type="entries",
+            input_ids=pdblist,
+            return_data_list=[
+                "rcsb_accession_info.initial_release_date",
+                "refine.ls_R_factor_R_free",
+                "refine.ls_R_factor_R_work",
+                "refine.ls_R_factor_obs",
+                ]
+        )
+        r = query.exec()
+        
+        out = {}
+        for entry in r['data']['entries']:
+            pdbid = entry['rcsb_id']
+            rcsb_accession_info = entry.get('rcsb_accession_info', None)
+            # Return None if no ligand
+            if rcsb_accession_info is None:
+                initial_release_date = None
+            else:
+                initial_release_date = rcsb_accession_info['initial_release_date']
+                
+            refine = entry.get('refine', None)
+            # Return None if no refine
+            if refine is None:
+                ls_R_factor_R_free = None
+                ls_R_factor_R_work = None
+                ls_R_factor_obs = None
+            else:
+                refine_info = refine[0]
+                ls_R_factor_R_free = refine_info['ls_R_factor_R_free']
+                ls_R_factor_R_work = refine_info['ls_R_factor_R_work']
+                ls_R_factor_obs    = refine_info['ls_R_factor_obs']
+                
+            out[pdbid] = {
+                'initial_release_date': initial_release_date,
+                'ls_R_factor_R_free': ls_R_factor_R_free,
+                'ls_R_factor_R_work': ls_R_factor_R_work,
+                'ls_R_factor_obs': ls_R_factor_obs,
+            }
+        return out
     
-    def _parse(self):
+    def _parsePDB(self):
         data = self._rawdata
         PDBdata = {}
         for key, value in data.items():
@@ -410,20 +597,44 @@ class UniprotRecord(object):
             }
 
         pdblist = list(PDBdata.keys())
-        if len(pdblist) != 0:
-            ligands = self._parseLigand(pdblist)
-            for pdbid in PDBdata:
-                PDBdata[pdbid]['ligand'] = ligands[pdbid]
+        if len(pdblist) == 0:
+            self._pdbdata = PDBdata
+            return
+        
+        # RCSB Data API: entries 
+        # Retrieved info: ligands, released date, Observed Residual factor (R-value obs) 
+        ligands = self._parseLigandsfromPDB(pdblist)
+        rvalues = self._parseRvaluefromPDB(pdblist)
+            
+        for pdbid in PDBdata:
+            PDBdata[pdbid]['ligand'] = ligands[pdbid]
+            PDBdata[pdbid]['initial_release_date'] = rvalues[pdbid]['initial_release_date']
+            PDBdata[pdbid]['ls_R_factor_R_free'] = rvalues[pdbid]['ls_R_factor_R_free']
+            PDBdata[pdbid]['ls_R_factor_R_work'] = rvalues[pdbid]['ls_R_factor_R_work']
+            PDBdata[pdbid]['ls_R_factor_obs'] = rvalues[pdbid]['ls_R_factor_obs']
+            
+            # RCSB Data API: polymer_entity_instances 
+            # Retrieved info: Sequence Annotations - UNOBSERVED_RESIDUE_XYZ
+            chains = PDBdata[pdbid]['chains']
+            pdb_instances = [f'{pdbid}.{chid}' for chid in chains]
+            seq_annot = self._parseSeqAnnotfromPDB(pdb_instances)
+            PDBdata[pdbid]['seq_annot'] = seq_annot
 
+        self._pdbdata = PDBdata
+        
+    def _parse(self):
+        LOGGER.info(f'Parse UniProt information of {self.getAccession()}...')
+        LOGGER.timeit('_parse')
         self._parseActiveSite()
         self._parseBindingSite()
+        self._parseSite()
         self._parseCofactor()
         self._parseDNAbinding()
         self._parseZincfinger()
+        self._parseCellLocation()
+        self._parsePDB()
+        LOGGER.report(f'Parsing in %.1fs.', '_parse')
         
-        self._pdbdata = PDBdata
-        
-    
 def searchUniprot(id):
     """Search Uniprot with *id* and return a :class:`UniprotRecord` containing the results. 
     """
