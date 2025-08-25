@@ -1,0 +1,2 @@
+id,uni_cofactor,uni_seq_len,pdbid,chid,basid,all_pdb_ligands,pdb_cofactors,n_pdb_cofactors,pdb_ligand_or_drugs,n_pdb_ligand_or_drugs,resrange,modeled_len,n_mut,n_missing_fsite,coverage,resolution,r_free,active_site,binding_site,dna_binding,zinc_finger,missing_pdb_resID,missing_uniprot_resID
+P23219,"['COH', 'HEB']",599,6Y3C,6Y3C.A,['1'],['FLC'],set(),0,{'FLC'},1,24-599,559,0,0,0.9332220367278798,3.36,0.2629,"[206, 384]",['387'],[],[],"[(1, 3), (561, 576)]","[[(24, 26)], [(584, 599)]]"

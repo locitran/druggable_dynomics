@@ -1,0 +1,1 @@
+id,uni_cofactor,uni_seq_len,pdbid,chid,basid,all_pdb_ligands,pdb_cofactors,n_pdb_cofactors,pdb_ligand_or_drugs,n_pdb_ligand_or_drugs,resrange,modeled_len,n_mut,n_missing_fsite,coverage,resolution,r_free,active_site,binding_site,dna_binding,zinc_finger,missing_pdb_resID,missing_uniprot_resID

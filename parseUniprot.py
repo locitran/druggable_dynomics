@@ -26,19 +26,20 @@ for id in id_list:
         u = searchUniprot(id)
         _dict = {
             'id': u.getAccession(),
-            'name': u.getName(),
-            'protein': u.getProtein(),
-            'gene': u.getGene(),
-            'organism': u.getOrganism(),
-            'sequence': u.getSequence(),
-            'cell_location': u.getCellLocation(),
-            'cofactor': u.getCofactor(),
+            # 'name': u.getName(),
+            # 'protein': u.getProtein(),
+            # 'gene': u.getGene(),
+            # 'organism': u.getOrganism(),
+            # 'sequence': u.getSequence(),
+            # 'cell_location': u.getCellLocation(),
+            # 'cofactor': u.getCofactor(),
             'binding_site': u.getBindingSite(),
-            'active_site': u.getActivateSite(),
-            'dna_binding': u.getDNAbinding(),
-            'zinc_finger': u.getZincFinger(),
-            'pdb': u.getPDBs(),
-            'alphafold': u.getAlphaFold(),
+            # 'active_site': u.getActiveSite(),
+            # 'dna_binding': u.getDNAbinding(),
+            # 'zinc_finger': u.getZincFinger(),
+            'site': u.getSite(),
+            # 'pdb': u.getPDBs(),
+            # 'alphafold': u.getAlphaFold(),
         }
         data.append(_dict)
     except Exception as e:
@@ -52,7 +53,7 @@ LOGGER.report('Run time elapsed in %.2fs.', "_runtime")
 LOGGER.close(logfile)
 
 json_string = json.dumps(data)
-filename = 'parseUniprot_881.json'
+filename = 'parseUniprot_site_881.json'
 filepath = os.path.join(ROOT_DIR, 'data', filename)
 with open(filepath, 'w') as f:
     json.dump(data, f)
