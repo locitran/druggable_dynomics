@@ -1,5 +1,24 @@
 """This module defines a class and relative functions for parsing Uniprot
-information and corresponding PDB."""
+information and corresponding PDB.
+
+Some important definitions should be acknowledged. 
+
+Reference: https://www.rcsb.org/docs/general-help/identifiers-in-pdb
+1. PDB entity: (Entity level Identifier)
+An entity is a chemically distinct part of a structure. One entry may have multiple copies (instances) of a given entity
+
+2. PDB instance: (Instance level Identifiers)
+An instance is a distinct copy of an entity or molecule.
+
+For example, a heterotetramer hemoglobin (4hhb) contains two copies of the hemoglobin alpha chain (or chains A and C) 
+and two copies of the beta chain (or chains B and D). People then name it as follow:
+- the hemoglobin alpha: entity 1 --> chains A and C: instances A and C
+- the hemoglobin beta: entity 2 --> chains B and D: instances B and D
+"""
+
+
+
+
 
 import time
 import re
@@ -997,3 +1016,108 @@ def pickPDBfromUniprot(entry, to_file=None):
         df = pd.DataFrame(columns=columns, data=PDBrank)
         df.to_csv(to_file, index=False)
     return PDBrank
+
+
+from rcsbapi.search import AttributeQuery, NestedAttributeQuery
+from rcsbapi.sequence import Alignments
+from src.utils.logger import LOGGER 
+
+def queryUid2RCSB(uid):
+    """Query UniProtID to collect all PDB ID (entities and instances)"""
+    # uniprot_id = 'P0DMS8'
+    q_acc = AttributeQuery(
+        attribute='rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession',
+        value=uid,
+        operator="exact_match",
+    )
+    q_db = AttributeQuery(
+        attribute='rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_name',
+        value="UniProt",
+        operator="exact_match",
+    )
+    # Group nested attributes using `NestedAttributeQuery`
+    query = NestedAttributeQuery(q_acc, q_db)
+    
+    # Query data
+    pdb_id = list(query())
+    pdb_entity = list(query(return_type='polymer_entity'))
+    pdb_instance = list(query(return_type='polymer_instance'))
+
+    # Retrieve
+    out = []
+    for id in pdb_id:
+        _entity = next(
+            (_ent for _ent in pdb_entity if _ent.startswith(f"{id}_")), None
+        )
+        if not _entity:
+            continue
+        
+        _instance = [_ins for _ins in pdb_instance if _ins.startswith(f"{id}.")]
+        sample = {}
+        sample["pdb_id"] = _entity[:4]
+        sample["pdb_entity"] = _entity
+        sample["pdb_instance"] = _instance
+        out.append(sample)
+    return out
+
+def align_RCSB2UniProt(pdb_entity, uid):
+
+    # Fetch alignments between a UniProt Accession and PDB Entity 
+    # (i.e., unique sequence within the entry)
+    query = Alignments(
+        db_from="PDB_ENTITY",
+        db_to="UNIPROT",
+        query_id=pdb_entity,
+        return_data_list=["query_sequence", "target_alignments"]
+    )
+    r = query.exec()
+    
+    uid_record = next(
+        (item for item in r['data']['alignments']['target_alignments'] \
+        if item['target_id'] == uid), None
+    )
+    if not uid_record:
+        LOGGER.warn(f"No information for {pdb_entity}")
+        return None
+
+    aligned_regions = uid_record['aligned_regions']
+    query_seq = r['data']['alignments']['query_sequence']
+    target_seq = uid_record['target_sequence']
+
+    if len(aligned_regions) > 1:
+        LOGGER.warn(f"More than 1 aligned regions for {pdb_entity} and {uid}")
+
+    for i, region in enumerate(aligned_regions):
+        pdb_seq = query_seq[region['query_begin']-1 : region['query_end']]
+        uniprot_seq = target_seq[region['target_begin']-1 : region['target_end']]
+
+        # Find residues that disagree between PDB and UniProt 
+        difference = []
+        for j, (pdb_aa, uniprot_aa) in enumerate(zip(pdb_seq, uniprot_seq)):
+            if pdb_aa != uniprot_aa:
+                difference.append({
+                    'pdb_resID': region['query_begin']+j,
+                    'uniprot_resID': region['target_begin']+j,
+                    'uniprot_aa': uniprot_aa,
+                    'pdb_aa': pdb_aa,
+                })
+        aligned_regions[i]['difference'] = difference
+    return {
+        'aligned_regions': aligned_regions,
+        'query_seq': query_seq,
+        'target_seq': target_seq,   
+    }
+
+# uid = 'P02925'
+# data = queryUid2RCSB(uid)
+# for data_idx in range(len(data)):
+#     sample = data[data_idx]
+#     pdb_entity = sample['pdb_entity']
+
+#     align = align_RCSB2UniProt(pdb_entity, uid)
+#     if not align:
+#         continue
+
+#     sample['aligned_regions'] = align['aligned_regions']
+#     sample['query_seq'] = align['query_seq']
+#     sample['target_seq'] = align['target_seq']
